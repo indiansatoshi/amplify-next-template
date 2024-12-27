@@ -2,10 +2,10 @@
 
 import React from "react";
 import { Amplify } from "aws-amplify";
-import "./app.css";
+import "./globals.css";
 import { Authenticator } from "@aws-amplify/ui-react";
-import "@aws-amplify/ui-react/styles.css";
 import outputs from "@/amplify_outputs.json";
+import { AuthWrapper } from "@/components/auth/auth-wrapper";
 
 Amplify.configure(outputs);
 
@@ -15,11 +15,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>      
-        <Authenticator>
-          {children}
-        </Authenticator>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Authenticator.Provider>
+          <AuthWrapper>
+            {children}
+          </AuthWrapper>
+        </Authenticator.Provider>
       </body>
     </html>
   );
