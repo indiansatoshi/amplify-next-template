@@ -1,17 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { generateClient, GraphQLResult } from "@aws-amplify/api";
+import { generateClient } from "@aws-amplify/api";
 import { useAuthenticator } from "@aws-amplify/ui-react";
-import { Amplify } from "aws-amplify";
-import outputs from "@/amplify_outputs.json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-
-Amplify.configure(outputs);
-
-const client = generateClient();
+import '@/app/lib/amplify';
 
 interface Todo {
   id: string;
@@ -48,7 +43,7 @@ export default function App() {
 
   async function listTodos() {
     try {
-      const response = await client.graphql<GraphQLResult<ListTodosResponse>>({
+      const response = await generateClient().graphql<ListTodosResponse>({
         query: `
           query ListTodos {
             listTodos {
@@ -76,7 +71,7 @@ export default function App() {
     if (!newTodoContent.trim()) return;
     
     try {
-      const response = await client.graphql<GraphQLResult<CreateTodoResponse>>({
+      const response = await generateClient().graphql<CreateTodoResponse>({
         query: `
           mutation CreateTodo($input: CreateTodoInput!) {
             createTodo(input: $input) {
@@ -107,7 +102,7 @@ export default function App() {
 
   async function deleteTodo(id: string) {
     try {
-      const response = await client.graphql<GraphQLResult<DeleteTodoResponse>>({
+      const response = await generateClient().graphql<DeleteTodoResponse>({
         query: `
           mutation DeleteTodo($input: DeleteTodoInput!) {
             deleteTodo(input: $input) {
@@ -130,71 +125,50 @@ export default function App() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>My Todos</CardTitle>
-        <CardDescription>
-          Manage your todos and stay organized
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-4">
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
+        <h1 className="text-4xl font-bold mb-8">Todo App</h1>
+        
+        <div className="mb-8">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-full">Add New Todo</Button>
+              <Button>Add New Todo</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Todo</DialogTitle>
+                <DialogTitle>Add New Todo</DialogTitle>
                 <DialogDescription>
-                  Add a new todo item to your list
+                  Create a new todo item. Click save when you're done.
                 </DialogDescription>
               </DialogHeader>
               <Input
                 value={newTodoContent}
                 onChange={(e) => setNewTodoContent(e.target.value)}
-                placeholder="Enter todo content..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    createTodo();
-                  }
-                }}
+                placeholder="Enter todo content"
               />
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={createTodo}>Create Todo</Button>
+                <Button onClick={createTodo}>Save</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </div>
 
-          <div className="space-y-2">
-            {todos.map((todo) => (
-              <div
-                key={todo.id}
-                className="flex items-center justify-between rounded-lg border p-4"
-              >
-                <span>{todo.content}</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => deleteTodo(todo.id)}
-                >
+        <div className="grid gap-4">
+          {todos.map((todo) => (
+            <Card key={todo.id}>
+              <CardHeader>
+                <CardTitle>{todo.content}</CardTitle>
+                <CardDescription>Created at: {new Date(todo.createdAt).toLocaleString()}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="destructive" onClick={() => deleteTodo(todo.id)}>
                   Delete
                 </Button>
-              </div>
-            ))}
-          </div>
-
-          {todos.length === 0 && (
-            <p className="text-center text-sm text-muted-foreground">
-              No todos yet. Create one to get started!
-            </p>
-          )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </main>
   );
 }
