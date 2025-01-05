@@ -24,13 +24,9 @@ const awsmobile = {
     "aws_cognito_verification_mechanisms": [
         "EMAIL"
     ],
-    "aws_cloud_logic_custom": [
-        {
-            "name": "preGenerateWallet",
-            "endpoint": outputsJson.ApiEndpoint,
-            "region": outputsJson.Region || "eu-west-2"
-        }
-    ]
+    "aws_appsync_graphqlEndpoint": outputsJson.GraphQLAPIEndpoint,
+    "aws_appsync_region": outputsJson.Region || "eu-west-2",
+    "aws_appsync_authenticationType": "AMAZON_COGNITO_USER_POOLS"
 };
 
 export default awsmobile;

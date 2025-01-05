@@ -1,0 +1,16 @@
+type Wallet @model @auth(rules: [{ allow: owner }]) {
+  userId: ID! @primaryKey
+  email: String!
+  address: String!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type Query {
+  getWalletByUserId(userId: ID!): Wallet @function(name: "preGenerateWallet")
+  getWalletByAddress(address: String!): Wallet @function(name: "preGenerateWallet")
+}
+
+type Mutation {
+  generateWallet: Wallet @function(name: "preGenerateWallet") @auth(rules: [{ allow: owner }])
+}

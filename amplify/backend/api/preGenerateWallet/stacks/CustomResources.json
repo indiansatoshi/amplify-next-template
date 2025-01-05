@@ -1,0 +1,139 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "An auto-generated nested stack.",
+  "Parameters": {
+    "AppSyncApiId": {
+      "Type": "String",
+      "Description": "The id of the AppSync API associated with this project."
+    },
+    "AppSyncApiName": {
+      "Type": "String",
+      "Description": "The name of the AppSync API",
+      "Default": "AppSyncSimpleTransform"
+    },
+    "env": {
+      "Type": "String",
+      "Description": "The environment name. e.g. Dev, Test, or Production",
+      "Default": "NONE"
+    },
+    "LambdaFunctionArn": {
+      "Type": "String",
+      "Description": "The ARN of the Lambda function to be used as a data source"
+    }
+  },
+  "Resources": {
+    "LambdaDataSource": {
+      "Type": "AWS::AppSync::DataSource",
+      "Properties": {
+        "ApiId": {
+          "Ref": "AppSyncApiId"
+        },
+        "Name": "WalletLambdaDataSource",
+        "Type": "AWS_LAMBDA",
+        "ServiceRoleArn": {
+          "Fn::GetAtt": [
+            "LambdaDataSourceRole",
+            "Arn"
+          ]
+        },
+        "LambdaConfig": {
+          "LambdaFunctionArn": {
+            "Ref": "LambdaFunctionArn"
+          }
+        }
+      }
+    },
+    "LambdaDataSourceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "appsync.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "InvokeLambdaFunction",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    {
+                      "Ref": "LambdaFunctionArn"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "GetWalletByUserIdResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": {
+          "Ref": "AppSyncApiId"
+        },
+        "TypeName": "Query",
+        "FieldName": "getWalletByUserId",
+        "DataSourceName": {
+          "Fn::GetAtt": [
+            "LambdaDataSource",
+            "Name"
+          ]
+        },
+        "RequestMappingTemplate": "{\"version\":\"2017-02-28\",\"operation\":\"Invoke\",\"payload\":{\"operation\":\"GET_BY_USER_ID\",\"userId\":$util.toJson($context.arguments.userId)}}",
+        "ResponseMappingTemplate": "$util.toJson($context.result)"
+      }
+    },
+    "GetWalletByAddressResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": {
+          "Ref": "AppSyncApiId"
+        },
+        "TypeName": "Query",
+        "FieldName": "getWalletByAddress",
+        "DataSourceName": {
+          "Fn::GetAtt": [
+            "LambdaDataSource",
+            "Name"
+          ]
+        },
+        "RequestMappingTemplate": "{\"version\":\"2017-02-28\",\"operation\":\"Invoke\",\"payload\":{\"operation\":\"GET_BY_ADDRESS\",\"address\":$util.toJson($context.arguments.address)}}",
+        "ResponseMappingTemplate": "$util.toJson($context.result)"
+      }
+    },
+    "GenerateWalletResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": {
+          "Ref": "AppSyncApiId"
+        },
+        "TypeName": "Mutation",
+        "FieldName": "generateWallet",
+        "DataSourceName": {
+          "Fn::GetAtt": [
+            "LambdaDataSource",
+            "Name"
+          ]
+        },
+        "RequestMappingTemplate": "{\"version\":\"2017-02-28\",\"operation\":\"Invoke\",\"payload\":{\"operation\":\"CREATE\",\"userId\":$util.toJson($context.identity.sub)}}",
+        "ResponseMappingTemplate": "$util.toJson($context.result)"
+      }
+    }
+  }
+}

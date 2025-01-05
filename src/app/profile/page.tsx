@@ -2,8 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import { Lambda } from 'aws-amplify';
+import { generateClient } from 'aws-amplify/api';
 import { Card, Heading, Flex, Text, Loader, Button, Link } from '@aws-amplify/ui-react';
+import { GraphQLResult } from '@aws-amplify/api-graphql';
+import { AuthUser } from '@aws-amplify/auth';
+
+// Define the GraphQL query
+const getWalletByUserId = /* GraphQL */ `
+  query GetWalletByUserId($userId: ID!) {
+    getWalletByUserId(userId: $userId) {
+      userId
+      email
+      address
+    }
+  }
+`;
 
 interface UserProfile {
   email: string;
@@ -11,25 +24,31 @@ interface UserProfile {
   userId: string;
 }
 
+interface GetWalletByUserIdData {
+  getWalletByUserId: UserProfile;
+}
+
 export default function ProfilePage() {
   const { user } = useAuthenticator((context) => [context.user]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const client = generateClient();
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         if (!user) return;
 
-        const response = await Lambda.invoke('preGenerateWallet', {
-          operation: 'GET_BY_USER_ID',
-          userId: user.attributes?.sub
-        });
+        const response = (await client.graphql({
+          query: getWalletByUserId,
+          variables: {
+            userId: user.userId
+          }
+        })) as GraphQLResult<GetWalletByUserIdData>;
 
-        if (response.statusCode === 200) {
-          const data = JSON.parse(response.body);
-          setProfile(data);
+        if (response.data?.getWalletByUserId) {
+          setProfile(response.data.getWalletByUserId);
         } else {
           setError('Failed to fetch profile data');
         }
