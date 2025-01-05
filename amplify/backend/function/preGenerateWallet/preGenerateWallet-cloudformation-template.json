@@ -1,305 +1,102 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "Lambda Function resource stack for pre-generating Ethereum wallets",
-    "Parameters": {
-        "CloudWatchRule": {
-            "Type": "String",
-            "Default": "NONE",
-            "Description": "Enter CloudWatch Events Rule Name"
-        },
-        "env": {
-            "Type": "String"
-        }
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Lambda Function for Wallet Management",
+  "Parameters": {
+    "env": {
+      "Type": "String"
     },
-    "Conditions": {
-        "ShouldNotCreateEnvResources": {
-            "Fn::Equals": [
-                {
-                    "Ref": "env"
-                },
-                "NONE"
-            ]
-        }
+    "WalletTableName": {
+      "Type": "String"
     },
-    "Resources": {
-        "WalletTable": {
-            "Type": "AWS::DynamoDB::Table",
-            "Properties": {
-                "TableName": {
-                    "Fn::If": [
-                        "ShouldNotCreateEnvResources",
-                        "UserWallets",
-                        {
-                            "Fn::Join": [
-                                "",
-                                [
-                                    "UserWallets-",
-                                    {
-                                        "Ref": "env"
-                                    }
-                                ]
-                            ]
-                        }
-                    ]
-                },
-                "AttributeDefinitions": [
-                    {
-                        "AttributeName": "userId",
-                        "AttributeType": "S"
-                    },
-                    {
-                        "AttributeName": "address",
-                        "AttributeType": "S"
-                    }
-                ],
-                "KeySchema": [
-                    {
-                        "AttributeName": "userId",
-                        "KeyType": "HASH"
-                    }
-                ],
-                "GlobalSecondaryIndexes": [
-                    {
-                        "IndexName": "WalletAddressIndex",
-                        "KeySchema": [
-                            {
-                                "AttributeName": "address",
-                                "KeyType": "HASH"
-                            }
-                        ],
-                        "Projection": {
-                            "ProjectionType": "ALL"
-                        }
-                    }
-                ],
-                "BillingMode": "PAY_PER_REQUEST",
-                "SSESpecification": {
-                    "SSEEnabled": true
-                }
-            }
-        },
-        "KMSKey": {
-            "Type": "AWS::KMS::Key",
-            "Properties": {
-                "Description": "KMS key for encrypting wallet data",
-                "KeyPolicy": {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "Enable IAM User Permissions",
-                            "Effect": "Allow",
-                            "Principal": {
-                                "AWS": {
-                                    "Fn::Join": [
-                                        "",
-                                        [
-                                            "arn:aws:iam::",
-                                            {
-                                                "Ref": "AWS::AccountId"
-                                            },
-                                            ":root"
-                                        ]
-                                    ]
-                                }
-                            },
-                            "Action": "kms:*",
-                            "Resource": "*"
-                        }
-                    ]
-                }
-            }
-        },
-        "KMSKeyAlias": {
-            "Type": "AWS::KMS::Alias",
-            "Properties": {
-                "AliasName": {
-                    "Fn::Join": [
-                        "",
-                        [
-                            "alias/",
-                            {
-                                "Fn::If": [
-                                    "ShouldNotCreateEnvResources",
-                                    "walletKey",
-                                    {
-                                        "Fn::Join": [
-                                            "",
-                                            [
-                                                "walletKey-",
-                                                {
-                                                    "Ref": "env"
-                                                }
-                                            ]
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    ]
-                },
-                "TargetKeyId": {
-                    "Ref": "KMSKey"
-                }
-            }
-        },
-        "LambdaFunction": {
-            "Type": "AWS::Lambda::Function",
-            "Properties": {
-                "Handler": "index.handler",
-                "FunctionName": {
-                    "Fn::If": [
-                        "ShouldNotCreateEnvResources",
-                        "preGenerateWallet",
-                        {
-                            "Fn::Join": [
-                                "",
-                                [
-                                    "preGenerateWallet",
-                                    "-",
-                                    {
-                                        "Ref": "env"
-                                    }
-                                ]
-                            ]
-                        }
-                    ]
-                },
-                "Environment": {
-                    "Variables": {
-                        "ENV": {
-                            "Ref": "env"
-                        },
-                        "KMS_KEY_ID": {
-                            "Ref": "KMSKey"
-                        },
-                        "WALLET_TABLE": {
-                            "Ref": "WalletTable"
-                        }
-                    }
-                },
-                "Role": {
-                    "Fn::GetAtt": [
-                        "LambdaExecutionRole",
-                        "Arn"
-                    ]
-                },
-                "Runtime": "nodejs18.x",
-                "Timeout": 25,
-                "Code": {
-                    "S3Bucket": {
-                        "Ref": "deploymentBucketName"
-                    },
-                    "S3Key": {
-                        "Ref": "s3Key"
-                    }
-                }
-            }
-        },
-        "LambdaExecutionRole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "RoleName": {
-                    "Fn::If": [
-                        "ShouldNotCreateEnvResources",
-                        "preGenerateWalletLambdaRole",
-                        {
-                            "Fn::Join": [
-                                "",
-                                [
-                                    "preGenerateWalletLambdaRole",
-                                    "-",
-                                    {
-                                        "Ref": "env"
-                                    }
-                                ]
-                            ]
-                        }
-                    ]
-                },
-                "AssumeRolePolicyDocument": {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": [
-                                    "lambda.amazonaws.com"
-                                ]
-                            },
-                            "Action": [
-                                "sts:AssumeRole"
-                            ]
-                        }
-                    ]
-                },
-                "Policies": [
-                    {
-                        "PolicyName": "WalletDataAccess",
-                        "PolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [
-                                {
-                                    "Effect": "Allow",
-                                    "Action": [
-                                        "dynamodb:PutItem",
-                                        "dynamodb:GetItem",
-                                        "dynamodb:UpdateItem",
-                                        "dynamodb:DeleteItem"
-                                    ],
-                                    "Resource": {
-                                        "Fn::GetAtt": [
-                                            "WalletTable",
-                                            "Arn"
-                                        ]
-                                    }
-                                },
-                                {
-                                    "Effect": "Allow",
-                                    "Action": [
-                                        "kms:Encrypt",
-                                        "kms:Decrypt",
-                                        "kms:GenerateDataKey"
-                                    ],
-                                    "Resource": {
-                                        "Fn::GetAtt": [
-                                            "KMSKey",
-                                            "Arn"
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ],
-                "ManagedPolicyArns": [
-                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-                ]
-            }
-        }
+    "WalletKMSKeyId": {
+      "Type": "String"
     },
-    "Outputs": {
-        "Name": {
-            "Value": {
-                "Ref": "LambdaFunction"
-            }
-        },
-        "Arn": {
-            "Value": {
-                "Fn::GetAtt": [
-                    "LambdaFunction",
-                    "Arn"
-                ]
-            }
-        },
-        "Region": {
-            "Value": {
-                "Ref": "AWS::Region"
-            }
-        },
-        "LambdaExecutionRole": {
-            "Value": {
-                "Ref": "LambdaExecutionRole"
-            }
-        }
+    "UserPoolId": {
+      "Type": "String"
     }
+  },
+  "Resources": {
+    "LambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "index.handler",
+        "FunctionName": { "Fn::Join": ["-", ["preGenerateWallet", { "Ref": "env" }]] },
+        "Runtime": "nodejs18.x",
+        "Role": { "Fn::GetAtt": ["LambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables": {
+            "WALLET_TABLE": { "Ref": "WalletTableName" },
+            "KMS_KEY_ID": { "Ref": "WalletKMSKeyId" },
+            "USER_POOL_ID": { "Ref": "UserPoolId" },
+            "ENV": { "Ref": "env" }
+          }
+        },
+        "Timeout": 25
+      }
+    },
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": { "Fn::Join": ["-", ["preGenerateWalletRole", { "Ref": "env" }]] },
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": ["lambda.amazonaws.com"]
+              },
+              "Action": ["sts:AssumeRole"]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "WalletLambdaPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:PutItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:Query"
+                  ],
+                  "Resource": [
+                    { "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WalletTableName}" },
+                    { "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WalletTableName}/index/WalletAddressIndex" }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "kms:Encrypt",
+                    "kms:Decrypt",
+                    "kms:GenerateDataKey"
+                  ],
+                  "Resource": { "Fn::Sub": "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${WalletKMSKeyId}" }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/preGenerateWallet-${env}:*" }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaFunctionArn": {
+      "Description": "Lambda Function ARN",
+      "Value": { "Fn::GetAtt": ["LambdaFunction", "Arn"] }
+    }
+  }
 }

@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
+import { generateClient, GraphQLResult } from "@aws-amplify/api";
 import { useAuthenticator } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import outputs from "@/amplify_outputs.json";
@@ -12,10 +11,33 @@ import { Input } from "@/components/ui/input";
 
 Amplify.configure(outputs);
 
-const client = generateClient<Schema>();
+const client = generateClient();
+
+interface Todo {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ListTodosResponse {
+  listTodos: {
+    items: Todo[];
+  };
+}
+
+interface CreateTodoResponse {
+  createTodo: Todo;
+}
+
+interface DeleteTodoResponse {
+  deleteTodo: {
+    id: string;
+  };
+}
 
 export default function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodoContent, setNewTodoContent] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { user } = useAuthenticator();
@@ -24,28 +46,87 @@ export default function App() {
     listTodos();
   }, []);
 
-  function listTodos() {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
-    });
+  async function listTodos() {
+    try {
+      const response = await client.graphql<GraphQLResult<ListTodosResponse>>({
+        query: `
+          query ListTodos {
+            listTodos {
+              items {
+                id
+                content
+                createdAt
+                updatedAt
+              }
+            }
+          }
+        `,
+        authMode: 'userPool'
+      });
+      
+      if ('data' in response && response.data) {
+        setTodos(response.data.listTodos.items);
+      }
+    } catch (error) {
+      console.error('Error listing todos:', error);
+    }
   }
 
   async function createTodo() {
     if (!newTodoContent.trim()) return;
     
     try {
-      await client.models.Todo.create({
-        content: newTodoContent,
+      const response = await client.graphql<GraphQLResult<CreateTodoResponse>>({
+        query: `
+          mutation CreateTodo($input: CreateTodoInput!) {
+            createTodo(input: $input) {
+              id
+              content
+              createdAt
+              updatedAt
+            }
+          }
+        `,
+        variables: {
+          input: {
+            content: newTodoContent
+          }
+        },
+        authMode: 'userPool'
       });
-      setNewTodoContent("");
-      setIsDialogOpen(false);
+      
+      if ('data' in response && response.data) {
+        setNewTodoContent("");
+        setIsDialogOpen(false);
+        listTodos(); // Refresh the list
+      }
     } catch (error) {
       console.error('Error creating todo:', error);
     }
   }
 
-  function deleteTodo(id: string) {
-    client.models.Todo.delete({ id });
+  async function deleteTodo(id: string) {
+    try {
+      const response = await client.graphql<GraphQLResult<DeleteTodoResponse>>({
+        query: `
+          mutation DeleteTodo($input: DeleteTodoInput!) {
+            deleteTodo(input: $input) {
+              id
+            }
+          }
+        `,
+        variables: {
+          input: { id }
+        },
+        authMode: 'userPool'
+      });
+      
+      if ('data' in response && response.data) {
+        listTodos(); // Refresh the list
+      }
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
   }
 
   return (

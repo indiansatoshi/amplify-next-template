@@ -6,17 +6,18 @@ import { generateClient } from 'aws-amplify/api';
 import { Card, Heading, Flex, Text, Loader, Button, Link } from '@aws-amplify/ui-react';
 import { GraphQLResult } from '@aws-amplify/api-graphql';
 import { AuthUser } from '@aws-amplify/auth';
+import { getWalletByUserId } from '@/app/graphql/queries';
 
 // Define the GraphQL query
-const getWalletByUserId = /* GraphQL */ `
-  query GetWalletByUserId($userId: ID!) {
-    getWalletByUserId(userId: $userId) {
-      userId
-      email
-      address
-    }
-  }
-`;
+// const getWalletByUserId = /* GraphQL */ `
+//   query GetWalletByUserId($userId: ID!) {
+//     getWalletByUserId(userId: $userId) {
+//       userId
+//       email
+//       address
+//     }
+//   }
+// `;
 
 interface UserProfile {
   email: string;

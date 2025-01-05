@@ -4,9 +4,11 @@ import React from "react";
 import { Amplify } from "aws-amplify";
 import "./globals.css";
 import { Authenticator } from "@aws-amplify/ui-react";
+import "@aws-amplify/ui-react/styles.css";
 import outputs from "@/amplify_outputs.json";
 import { AuthWrapper } from "@/components/auth/auth-wrapper";
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "@/components/theme-provider";
+import Header from "@/app/components/Header";
 
 Amplify.configure(outputs);
 
@@ -26,6 +28,7 @@ export default function RootLayout({
         >
           <Authenticator.Provider>
             <AuthWrapper>
+              <Header />
               {children}
             </AuthWrapper>
           </Authenticator.Provider>

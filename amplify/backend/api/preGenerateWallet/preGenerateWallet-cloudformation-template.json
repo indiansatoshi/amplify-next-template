@@ -1,0 +1,152 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "AppSync API with Lambda Data Source",
+  "Parameters": {
+    "env": {
+      "Type": "String",
+      "Default": "dev"
+    },
+    "authRoleName": {
+      "Type": "String"
+    },
+    "unauthRoleName": {
+      "Type": "String"
+    },
+    "LambdaFunctionName": {
+      "Type": "String",
+      "Default": "preGenerateWallet"
+    },
+    "UserPoolId": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "GraphQLAPI": {
+      "Type": "AWS::AppSync::GraphQLApi",
+      "Properties": {
+        "Name": "WalletManagementAPI",
+        "AuthenticationType": "AMAZON_COGNITO_USER_POOLS",
+        "UserPoolConfig": {
+          "UserPoolId": { "Ref": "UserPoolId" },
+          "AwsRegion": { "Ref": "AWS::Region" },
+          "DefaultAction": "ALLOW"
+        }
+      }
+    },
+    "GraphQLSchema": {
+      "Type": "AWS::AppSync::GraphQLSchema",
+      "Properties": {
+        "ApiId": { "Fn::GetAtt": ["GraphQLAPI", "ApiId"] },
+        "Definition": {
+          "Fn::Join": [
+            "\n",
+            [
+              "type Wallet @model @auth(rules: [{ allow: owner }]) {",
+              "  userId: ID! @primaryKey",
+              "  email: String!",
+              "  address: String!",
+              "  createdAt: AWSDateTime!",
+              "  updatedAt: AWSDateTime!",
+              "}",
+              "",
+              "type Query {",
+              "  getWalletByUserId(userId: ID!): Wallet @function(name: \"preGenerateWallet\")",
+              "  getWalletByAddress(address: String!): Wallet @function(name: \"preGenerateWallet\")",
+              "}",
+              "",
+              "type Mutation {",
+              "  generateWallet: Wallet @function(name: \"preGenerateWallet\") @auth(rules: [{ allow: owner }])",
+              "}"
+            ]
+          ]
+        }
+      }
+    },
+    "WalletTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": "UserWallets",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "userId",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "address",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "userId",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "WalletAddressIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "address",
+                "KeyType": "HASH"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "SSESpecification": {
+          "SSEEnabled": true,
+          "KMSMasterKeyId": { "Ref": "WalletKMSKey" }
+        }
+      }
+    },
+    "WalletKMSKey": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "KMS key for wallet encryption",
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "Enable IAM User Permissions",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": { "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root" }
+              },
+              "Action": "kms:*",
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
+    "WalletKMSKeyAlias": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": "alias/wallet-key",
+        "TargetKeyId": { "Ref": "WalletKMSKey" }
+      }
+    }
+  },
+  "Outputs": {
+    "GraphQLAPIEndpoint": {
+      "Description": "GraphQL API Endpoint",
+      "Value": { "Fn::GetAtt": ["GraphQLAPI", "GraphQLUrl"] }
+    },
+    "GraphQLAPIId": {
+      "Description": "GraphQL API ID",
+      "Value": { "Fn::GetAtt": ["GraphQLAPI", "ApiId"] }
+    },
+    "WalletTableName": {
+      "Description": "DynamoDB Table Name",
+      "Value": { "Ref": "WalletTable" }
+    },
+    "WalletKMSKeyId": {
+      "Description": "KMS Key ID",
+      "Value": { "Ref": "WalletKMSKey" }
+    }
+  }
+}

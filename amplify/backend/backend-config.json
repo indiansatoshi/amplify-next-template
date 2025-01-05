@@ -1,0 +1,51 @@
+{
+  "api": {
+    "preGenerateWallet": {
+      "dependsOn": [
+        {
+          "category": "function",
+          "resourceName": "preGenerateWallet",
+          "attributes": ["Name", "Arn"]
+        },
+        {
+          "category": "auth",
+          "resourceName": "userPoolGroups",
+          "attributes": ["UserPoolId"]
+        }
+      ],
+      "output": {
+        "authConfig": {
+          "defaultAuthentication": {
+            "authenticationType": "AMAZON_COGNITO_USER_POOLS",
+            "userPoolConfig": {
+              "userPoolId": "UserPoolId"
+            }
+          },
+          "additionalAuthenticationProviders": []
+        }
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "AppSync"
+    }
+  },
+  "function": {
+    "preGenerateWallet": {
+      "build": true,
+      "dependsOn": [
+        {
+          "category": "api",
+          "resourceName": "preGenerateWallet",
+          "attributes": ["GraphQLAPIIdOutput"]
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    }
+  },
+  "auth": {
+    "userPoolGroups": {
+      "service": "Cognito-UserPools",
+      "providerPlugin": "awscloudformation"
+    }
+  }
+}
